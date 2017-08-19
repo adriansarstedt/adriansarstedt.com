@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<style type="text/css">
+		html, body {
+	      width: 100%;
+	      height: 100%;
+	      margin: 0px;
+	      border: 0;
+	      overflow: hidden;
+	      display: block;
+	    }
+
+	    table {
+	    	width: 100%;
+	    	height: 10%;
+	    	font-family: "Open Sans", arial, sans-serif;
+	    	font-size: 25px;
+	    }
+
+	    td {
+	    	
+	    	text-align: center;
+	    }
+
+	    button {
+	    	width: 100%;
+	    	height: 100%;
+	    	font-family: "Open Sans", arial, sans-serif;
+	    	font-size: 30px;
+
+	    }
+
+	    input {
+	    	width: 90%;
+	    }
+
+	    canvas {
+	    	margin:0px; 
+	    	outline:none; 
+	    	vertical-align: top;
+	    }
+	</style>
+</head>
+
+<body>
+
+	<table>
+		<tr>
+			<td>Number of Points</td>
+			<td>Minimum Iteration</td>
+			<td>Maximum Iteration</td>
+		</tr>
+		<tr>
+			<td style="width:33%;"><input type="range" name="quantity" min="1" max="100" onInput="redraw();" id="n"></td>
+			<td style="width:33%;"><input type="range" name="quantity" min="1" max="100" onInput="redraw();" id="minIterationRendered"></td>
+			<td style="width:33%;"><input type="range" name="quantity" min="1" max="100" onInput="redraw();" id="maxIterationRendered"></td>
+		</tr>
+	</table>
+
+	<canvas id="myCanvas" width="1200" height="600" style="border:1px solid #d3d3d3;"> Your browser does not support the HTML5 canvas tag.</canvas>
+
+	<table>
+		<tr>
+			<td style="width:25%;"><button onclick="generateNewSets()">RANDOMISE</button></td>
+			<td style="width:25%;"><button onclick="renderPointsToggle()">POINTS</button></td>
+			<td style="width:25%;"><button onclick="colourToggle()">COLOUR</button></td>
+			<td style="width:25%;"><button onclick="animationToggle()">ROTATE</button></td>
+		</tr>
+	</table>
+
+<script>
+	
+
+	var c = document.getElementById("myCanvas");
+	var ctx = c.getContext("2d");
+
+	ctx.canvas.width  = window.innerWidth;
+  	ctx.canvas.height = 0.8*window.innerHeight;
+
+	var n = 30;
+	var windowScale = 1;
+	var minIterationRendered = 8;
+	var maxIterationRendered = 23;
+
+	var maxRandomSetSize = 100;
+	var colourEnabled = true;
+	var restrictRender = true;
+	var renderPoints = false;
+	var animation = true;
+
+	alpha = 2*Math.PI/maxIterationRendered;
+	var wx = 2*Math.PI/200; /*radians per frame*/
+	var wy = 0;
+	divisionRatio = [1, 1];
+
+	var randomPoints;
+	var rimPoints;
+	var radii;
+	var altitudes;
+
+	var frame = 0;
+
+	var rotateDirection = "y";
+
+	function drawPoint([x, y]) {
+		ctx.beginPath();
+	    ctx.arc(x, y, 4, 0, 2 * Math.PI);
+	    ctx.fillStyle = 'black';
+	    ctx.fill();
+	    ctx.stroke();
+	}
+
+	function midpoint([x1, y1], [x2, y2]) {
+		return [(divisionRatio[0]*x1+divisionRatio[1]*x2)/(divisionRatio[0]+divisionRatio[1]), (divisionRatio[0]*y1+divisionRatio[1]*y2)/(divisionRatio[0]+divisionRatio[1])];
+	}
+
+	function drawLine([x1, y1], [x2, y2]) {
+		ctx.setLineDash([10, 0]);
+		ctx.beginPath();
+		ctx.moveTo(x1, y1);
+		ctx.lineTo(x2, y2);
+		ctx.stroke();
+	}
+
+	function tracePoints(points) {
+		drawLine(points[0], points[n]);
+		for (i=0;i<n;i++) {
+			drawLine(points[i], points[i+1]);
+		}
+	}
+
+	function midpointSet(points) {
+		set = [midpoint(points[0], points[n])]
+		for (i=0;i<n;i++) {
+			set.push(midpoint(points[i], points[i+1]));
+		}
+		return set;
+	}
+
+	function setupDefaultValues() {
+		document.getElementById("n").defaultValue = n;
+		document.getElementById("minIterationRendered").defaultValue = minIterationRendered;
+		document.getElementById("maxIterationRendered").defaultValue = maxIterationRendered;
+	}
+
+	function generateRandomSet() {
+		randomPoints = [];
+		radii = [];
+		altitudes = [];
+
+		for (i=0;i<maxRandomSetSize+1;i++) {
+			randomX = Math.floor((c.width*windowScale)*Math.random());
+			randomY = Math.floor((c.height*windowScale)*Math.random());
+			randomPoints.push([randomX, randomY]);
+			radii.push([c.width/2-randomX, c.height/2-randomY]);
+			altitudes.push(10*Math.random());
+
+			if (renderPoints == true) {
+				drawPoint(randomPoints[i]);
+			}
+		}
+	}
+
+	function generateRimSet() {
+		rimPoints = [];
+		rimPoints.push(randomPoints);
+
+		for (z=0;z<maxIterationRendered;z++) {
+			rimPoints.push(midpointSet(rimPoints[z]));
+		}
+	}
+
+	function draw() {
+
+		ctx.clearRect(0, 0, c.width, c.height);
+
+		if (renderPoints) {
+			for (p=0;p<n+1;p++) {
+				drawPoint(randomPoints[p]);
+			}
+		}
+
+		for (z=minIterationRendered-1;z<maxIterationRendered;z++) {
+			if (colourEnabled) {
+				var str = "rgb("+String(Math.floor(127*Math.cos(alpha*z)+127))+","+String(Math.floor(127*Math.cos(alpha*z+(2*Math.PI)/3)+127))+","+String(Math.floor(127*Math.cos(alpha*z+(4*Math.PI)/3)+127))+")";
+				ctx.strokeStyle=str;
+			}
+
+			if (rimPoints[z] == null) {
+				rimPoints.push(midpointSet(rimPoints[z-1]));
+			}
+
+			if (restrictRender==false) {
+				tracePoints(rimPoints[z]);
+				tracePoints(rimPoints[z+1]);
+			} else if (z+1>=minIterationRendered && z+1<=maxIterationRendered) {
+				tracePoints(rimPoints[z]);
+			}
+		}
+	}
+
+	function generateNewSets() {
+		frame = 0;
+		generateRandomSet();
+		generateRimSet();
+		draw();
+	}
+
+	function redraw() {
+
+		if (n != Math.floor(document.getElementById("n").value)) {
+			n=Math.floor(document.getElementById("n").value);
+			generateRimSet();
+		}
+		
+		minIterationRendered=Math.floor(document.getElementById("minIterationRendered").value);
+		maxIterationRendered=Math.floor(document.getElementById("maxIterationRendered").value);
+		draw();
+	}
+
+	function animate() {
+		if (animation) {
+			frame++;
+			for (p=0; p<n+1; p++) {
+				randomPoints[p][0] = c.width/2+radii[p][0]*Math.sin(wx*frame+altitudes[p]);
+				randomPoints[p][1] = c.height/2+radii[p][1]*Math.sin(wy*frame+altitudes[p]);
+			}
+
+			generateRimSet();
+			draw();
+		}
+	}
+
+	function colourToggle() {
+		if (colourEnabled) {
+			colourEnabled = false;
+			ctx.strokeStyle = "#000000";
+		} else {
+			colourEnabled = true;
+		}
+		redraw();
+	}
+
+	function renderPointsToggle() {
+		if (renderPoints) {
+			renderPoints = false;
+		} else {
+			renderPoints = true;
+		}
+		redraw();
+	}
+
+	function animationToggle() {
+		if (animation) {
+			animation = false;
+		} else {
+			animation = true;
+		}
+	}
+	
+	setupDefaultValues();
+	generateNewSets();
+
+	setInterval(animate, 30);
+
+</script> 
+
+</body>
+</html>
